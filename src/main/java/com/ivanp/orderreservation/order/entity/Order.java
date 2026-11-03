@@ -2,11 +2,15 @@ package com.ivanp.orderreservation.order.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
+@Setter
 @Table(name="orders")
 public class Order {
 
@@ -24,5 +28,17 @@ public class Order {
 
     @Column(name="updated_at")
     private LocalDateTime updatedAt;
+
+    @OneToMany(
+            mappedBy = "order",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<OrderItem> items = new ArrayList<>();
+
+    public void addItem(OrderItem item) {
+        items.add(item);
+        item.setOrder(this);
+    }
 
 }
