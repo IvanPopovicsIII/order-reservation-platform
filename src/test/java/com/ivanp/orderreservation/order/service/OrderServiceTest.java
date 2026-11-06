@@ -4,9 +4,12 @@ import com.github.dockerjava.api.exception.NotFoundException;
 import com.ivanp.orderreservation.order.entity.Order;
 import com.ivanp.orderreservation.order.entity.OrderStatus;
 import com.ivanp.orderreservation.order.repository.OrderRepository;
+import com.ivanp.orderreservation.order.request.CreateOrderItemRequest;
+import com.ivanp.orderreservation.order.request.CreateOrderRequest;
 import com.ivanp.orderreservation.order.response.OrderResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -14,10 +17,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -103,7 +108,70 @@ public class OrderServiceTest {
 
         verify(orderRepository).findAll();
 
+    }
+
+    @Test
+    void getAllOrders_whenNoOrders_returnsEmptyList() {
+
+        // Arrange
+        when(orderRepository.findAll())
+                .thenReturn(Collections.emptyList());
+
+        // Act
+        List<OrderResponse> response = orderService.getAllOrders();
+
+        // Assert
+        assertTrue(response.isEmpty());
+        verify(orderRepository).findAll();
+    }
+
+    @Test
+    void createOrder_whenValidRequest_savesOrderWithItems() {
+
+        // Arrange
+        CreateOrderRequest request = new CreateOrderRequest(
+                List.of(
+                        new CreateOrderItemRequest(101L, 2),
+                        new CreateOrderItemRequest(205L, 1)
+                )
+        );
+
+        when(orderRepository.save(any(Order.class)))
+                .thenAnswer(invocation -> {
+                    Order order = invocation.getArgument(0);
+                    order.setOrderId(42L);
+                    return order;
+                });
+
+        // Act
+
+        OrderResponse response = orderService.createOrder(request);
+
+        ArgumentCaptor<Order> captor =
+        ArgumentCaptor.forClass(Order.class);
+
+        verify(orderRepository).save(captor.capture());
+
+        Order savedOrder = captor.getValue();
+
+        // Assert
+
+        assertEquals(OrderStatus.PENDING, savedOrder.getStatus());
+        assertNotNull(savedOrder.getCreatedAt());
+        assertNotNull(savedOrder.getUpdatedAt());
+
+        assertEquals(2, savedOrder.getItems().size());
+
+        assertEquals(101L, savedOrder.getItems().get(0).getProductId());
+        assertEquals(2, savedOrder.getItems().get(0).getQuantity());
+
+        assertSame(savedOrder, savedOrder.getItems().get(0).getOrder());
+
+        assertEquals(42L, response.id());
+        assertEquals(2, response.items().size());
 
     }
+
+
 
 }
